@@ -1,0 +1,102 @@
+MaaEnd 计划结束通知 · Windows 版
+
+选择压缩包
+
+MaaEnd-DingTalk-Private.zip 适合复制到你自己的另一台电脑。包内 assets\config.json 已带有此前验证过的钉钉机器人配置。
+MaaEnd-DingTalk-Notifier.zip 可分发给他人。若希望它使用同一个机器人，将原有 debian-task-report 文件夹内的 assets\config.json 复制到程序的 assets 文件夹。也可以在程序界面自行填写接收群的 Webhook、加签密钥与关键词。
+
+第一次使用
+
+1. 在运行 MaaEnd 的 Windows 10 / 11 电脑上，将整个压缩包解压到一个固定的文件夹，例如 D:\工具\MaaEnd通知。把它放在 MaaEnd 安装目录之外，以便两个程序分别更新。
+2. 双击 MaaEndNotifier.exe。在「MaaEnd 目录」选择平时运行 MaaEnd 的安装文件夹，或它正在写入的 debug 文件夹。可在 MaaEnd 的「设置 → 调试」中打开日志位置。
+3. 首次使用时，程序会从 assets\config.json 自动填入机器人。升级用户优先沿用这台电脑上已保存的设置。如要切换到随包机器人，暂停监控后点「使用随包机器人」。Webhook 和密钥以掩码显示。
+4. 点击「发送测试消息」。群里收到消息后，点击「保存并开始监控」，再运行 MaaEnd 的计划。勾选「登录 Windows 后启动」可让程序在此账号登录后自动运行。
+
+升级旧版时，先在旧程序中点「退出」，再解压新版。若移动了程序文件夹，重新设置一次「登录 Windows 后启动」，使启动项指向新的位置。
+
+同一 Windows 用户升级后，原来保存在 settings.json 中的设置会继续生效。旧版 history 中的通知会按原来的发送进度导入新队列，已确认送达的部分保留为已发送。旧 TXT 和 JSON 留在原处。
+
+私用压缩包和自己配置好的 assets\config.json 均含有效的 Webhook 与加签密钥，请只在自己的设备间传递，并让需要运行通知程序的账号读取。程序保存界面设置时，使用当前 Windows 账户加密 Webhook 和密钥。
+
+收到的消息
+
+一轮计划结束后，消息列出计划名、运行电脑、开始和结束时间、耗时、本轮勾选数与完成数，以及未完成项和原因。全部完成也会发一条通知。若 MaaEnd 记录了失败路线、超时或理智不足等提示，消息会把提示列在对应项目下。证据不足的项目标为「结果未确认」。很长的摘要会分条发送，每条都有同一轮的运行编号。
+
+启动监控后，点窗口右上角的关闭按钮即可收起到任务栏通知区域。双击通知区域图标可以重新打开窗口。「暂停监控」可修改目录和机器人设置。「退出」会停止监控程序。
+
+点击「打开记录目录」，进入 history 文件夹，可查看每轮的 TXT 和 JSON。TXT 列出本轮所有勾选项。在资源管理器地址栏粘贴 %LOCALAPPDATA%\MaaEndDingTalk，也能打开当前用户的数据目录。
+
+选择哪些计划通知
+
+默认汇报全部计划。你仍在 MaaEnd 里新增计划、调整勾选项或删除计划。若希望某个计划继续运行并保留历史、同时停止向钉钉发消息，编辑 %LOCALAPPDATA%\MaaEndDingTalk\tasks.json。将对应计划的 task_id 填入 tasks 数组，并将 report_enabled 设为 false。可从该计划的新历史 JSON 中复制 TaskId。若日志缺少实例编号，TaskId 形如 name:全套日常，使用完整原值即可。
+
+例如，下面的配置让「全套日常」只记录到本机。
+
+{
+  "tasks": [
+    {
+      "task_id": "m5b3iyv",
+      "display_name": "全套日常",
+      "report_enabled": false
+    }
+  ]
+}
+
+将示例编号替换成你自己记录中的 TaskId。有其他计划规则时，请把新规则追加到 tasks 数组。display_name 可设为你希望在汇报里显示的名称。要恢复发送，可将 report_enabled 改为 true，或者从数组移除对应规则。修改在下一轮计划结算时生效。
+
+通知状态和补发
+
+计划结果与待发消息一起存入 %LOCALAPPDATA%\MaaEndDingTalk\notifications.sqlite3。发送器从数据库取出到期的消息，再连接钉钉。网络中断后，待发记录会保留到恢复运行时继续投递。钉钉已收件、回执却因断网丢失时，群里可能收到相同运行编号和分条序号的重复消息。
+
+以下示例在 PowerShell 中执行，可在任何工作目录使用。请把 D:\工具\MaaEnd通知 换成解压后的实际目录。
+
+查看队列和投递错误（无需联网）
+& 'D:\工具\MaaEnd通知\notify.cmd' status
+
+立即处理一批已到期的通知（会向真实机器人发送）
+& 'D:\工具\MaaEnd通知\notify.cmd' flush
+
+某条通知已停止自动重试时，先按错误原因修正配置，再从 status 复制该条的完整事件编号，替换下面的 EVENT_ID。
+& 'D:\工具\MaaEnd通知\notify.cmd' retry 'EVENT_ID'
+& 'D:\工具\MaaEnd通知\notify.cmd' flush
+
+pending 表示等待发送或等待下次重试时间，sending 表示已被一个发送器领取，sent 表示钉钉接口已接受，dead 表示需要人工处理。网络故障按退避间隔重试，最多尝试 8 次。遇到确定的配置错误也可能直接进入 dead。同一报告有多条时，后续分条等待前一条成功。retry 仅重置指定通知的投递状态。测试群内是否实际可见，请在通知界面点「发送测试消息」，然后查看目标钉钉群。
+
+定时补发（可选）
+
+平常保持监控程序运行即可自动发送。需要在监控窗口退出后仍定期处理已经入队的消息，可以在运行 MaaEnd 的电脑上设置 Windows「任务计划程序」。新建一个任务，使用保存过界面设置的同一 Windows 账号，设置每 1 分钟触发一次。「启动程序」操作可按以下示例填写，将路径换为实际安装位置。
+
+程序或脚本    D:\工具\MaaEnd通知\MaaEndNotifyCli.exe
+添加参数      flush
+起始于        D:\工具\MaaEnd通知
+
+这个任务仅负责投递已记录的通知。要采集新计划，仍需运行监控程序。电脑关机时，队列会等到下次开机并运行发送器后继续处理。
+
+查看以前的计划
+
+在「MaaEnd 目录」选中要分析的安装目录或导出后的 debug 文件夹，点「离线分析已有日志」。这个功能可以单独使用，无需填写 Webhook，结果只保存在本机的 replay 文件夹中。首次启用实时推送后，只自动处理从启用时间起新开的计划。
+
+如果需要在命令提示符（CMD）中回放，下面是一条例子。将三个路径换为自己的实际位置。
+
+start "" /wait "D:\工具\MaaEnd通知\MaaEndNotifier.exe" --replay "D:\日志备份\debug" "D:\日志备份\回放结果"
+
+判断依据
+
+程序读取 MXU 记录的计划、选中队列和任务 ID，按时间和父任务关联 MaaFramework 与 agent 日志。它会查找软件给出的错误、界面提示和失败子项，也会读取安装目录中的任务名称与翻译。无法确定的项目会在报告中标为「结果未确认」。若导出目录只有日志，部分新增任务可能显示内部名称。
+
+已使用 MaaEnd v3.3.0-beta.1 的两轮真实运行日志验证。MaaEnd 可照常更新。以后若更改日志格式，请用新版本的 debug 目录离线回放一次，核对任务数量和结果。
+
+从源码编译（可选）
+
+压缩包已经带有 MaaEndNotifier.exe（监控界面）和 MaaEndNotifyCli.exe（队列命令）。如果改动了 src 目录中的 C# 源码，先在通知程序中点「退出」，然后双击同目录的 build.cmd。脚本使用 Windows 的 .NET Framework 4.x C# 编译器，将两个程序生成到 build.cmd 所在目录。也可以在 PowerShell 里从任意工作目录运行以下命令，路径按实际位置填写。
+
+& 'D:\工具\MaaEnd通知\build.cmd'
+
+程序使用 Windows 10 / 11 的 .NET Framework 4.x 运行环境和系统提供的 winsqlite3.dll。构建脚本优先查找 64 位 Framework 编译器，再查找 32 位版本。
+
+项目与配置参考
+
+MaaEnd 项目　https://github.com/MaaEnd/MaaEnd
+MXU 用户文件与日志说明　https://github.com/MaaXYZ/MXU#用户文件
+钉钉自定义机器人　https://open.dingtalk.com/document/robots/custom-robot-access
+钉钉机器人安全设置　https://open.dingtalk.com/document/robots/customize-robot-security-settings

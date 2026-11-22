@@ -1,0 +1,8 @@
+{
+  "mode": "dingtalk",
+  "webhook_url": "",
+  "dingtalk_secret": "",
+  "github_secret": "",
+  "keyword": "任务汇报",
+  "timeout_seconds": 10
+}
